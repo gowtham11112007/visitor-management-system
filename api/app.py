@@ -13,6 +13,10 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'vms_super_secret_key_change_in_produc
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'adminpass')
 
+# Determine absolute path for static files
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_DIR = os.path.abspath(os.path.join(BASE_DIR, '../public'))
+
 # Determine DB URI: Use SQLite in instance or /tmp for Vercel
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
@@ -22,7 +26,7 @@ if not DATABASE_URL:
         DATABASE_URL = 'sqlite:///vms.db'
 
 # Flask App Initialization
-app = Flask(__name__, static_folder='../public', static_url_path='')
+app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -34,7 +38,7 @@ db = SQLAlchemy(app)
 def get_utc_now():
     return datetime.now(timezone.utc)
 
-# Dual-route helper for Vercel compatibility (matches both /api/path and /path)
+# Dual-route helper for Vercel compatibility
 def api_route(rule, **options):
     def decorator(f):
         alt_rule = rule[4:] if rule.startswith('/api') else f"/api{rule}"
@@ -127,7 +131,15 @@ with app.app_context():
 
 # Static File Serving Routes
 @app.route('/')
+@app.route('/index.html')
 def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
+
+# Catch-all static route for CSS, JS, Assets
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
 
 # --- API Endpoints ---
