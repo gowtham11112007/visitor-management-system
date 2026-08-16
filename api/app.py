@@ -34,6 +34,15 @@ db = SQLAlchemy(app)
 def get_utc_now():
     return datetime.now(timezone.utc)
 
+# Dual-route helper for Vercel compatibility (matches both /api/path and /path)
+def api_route(rule, **options):
+    def decorator(f):
+        alt_rule = rule[4:] if rule.startswith('/api') else f"/api{rule}"
+        app.add_url_rule(rule, endpoint=f"{f.__name__}_1", view_func=f, **options)
+        app.add_url_rule(alt_rule, endpoint=f"{f.__name__}_2", view_func=f, **options)
+        return f
+    return decorator
+
 # Database Models
 class Visitor(db.Model):
     __tablename__ = 'visitors'
@@ -47,7 +56,7 @@ class Visitor(db.Model):
     department = db.Column(db.String(120), nullable=False)
     host_name = db.Column(db.String(120), nullable=False)
     photo_base64 = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(30), default='checked_in')  # 'checked_in' or 'checked_out'
+    status = db.Column(db.String(30), default='checked_in')
     check_in_time = db.Column(db.DateTime, default=get_utc_now)
     expected_check_out_time = db.Column(db.DateTime, nullable=False)
     actual_check_out_time = db.Column(db.DateTime, nullable=True)
@@ -116,14 +125,14 @@ def token_required(f):
 with app.app_context():
     db.create_all()
 
-# --- Static File Serving Routes ---
+# Static File Serving Routes
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
 # --- API Endpoints ---
 
-@app.route('/api/health', methods=['GET'])
+@api_route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({
         'status': 'healthy',
@@ -132,7 +141,7 @@ def health_check():
         'database': DATABASE_URL.split('://')[0]
     }), 200
 
-@app.route('/api/login', methods=['POST'])
+@api_route('/api/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
     username = data.get('username')
@@ -156,7 +165,7 @@ def login():
     
     return jsonify({'message': 'Invalid username or password'}), 401
 
-@app.route('/api/visitors', methods=['POST'])
+@api_route('/api/visitors', methods=['POST'])
 def register_visitor():
     data = request.get_json() or {}
 
@@ -212,7 +221,7 @@ def register_visitor():
         'visitor': visitor.to_dict()
     }), 201
 
-@app.route('/api/visitors', methods=['GET'])
+@api_route('/api/visitors', methods=['GET'])
 def get_visitors():
     query = Visitor.query
 
@@ -247,14 +256,14 @@ def get_visitors():
     visitors = query.order_by(Visitor.check_in_time.desc()).all()
     return jsonify([v.to_dict() for v in visitors]), 200
 
-@app.route('/api/visitors/<int:visitor_id>', methods=['GET'])
+@api_route('/api/visitors/<int:visitor_id>', methods=['GET'])
 def get_visitor(visitor_id):
     visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
         return jsonify({'message': f'Visitor with ID {visitor_id} not found'}), 404
     return jsonify(visitor.to_dict()), 200
 
-@app.route('/api/visitors/<int:visitor_id>/checkout', methods=['PUT'])
+@api_route('/api/visitors/<int:visitor_id>/checkout', methods=['PUT'])
 def checkout_visitor(visitor_id):
     visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
@@ -272,7 +281,7 @@ def checkout_visitor(visitor_id):
         'visitor': visitor.to_dict()
     }), 200
 
-@app.route('/api/visitors/<int:visitor_id>', methods=['DELETE'])
+@api_route('/api/visitors/<int:visitor_id>', methods=['DELETE'])
 def delete_visitor(visitor_id):
     visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
@@ -283,7 +292,7 @@ def delete_visitor(visitor_id):
 
     return jsonify({'message': 'Visitor record deleted successfully'}), 200
 
-@app.route('/api/stats', methods=['GET'])
+@api_route('/api/stats', methods=['GET'])
 def get_stats():
     now = get_utc_now().replace(tzinfo=None)
     today_start = datetime(now.year, now.month, now.day)
@@ -314,7 +323,7 @@ def get_stats():
         'total_all_time': len(all_visitors)
     }), 200
 
-@app.route('/api/seed', methods=['POST'])
+@api_route('/api/seed', methods=['POST'])
 def seed_sample_data():
     count = Visitor.query.count()
     if count >= 5:
