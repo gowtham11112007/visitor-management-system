@@ -120,6 +120,12 @@ def token_required(f):
 with app.app_context():
     db.create_all()
 
+# --- Static File Serving Routes ---
+@app.route('/')
+@app.route('/index.html')
+def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
+
 # --- API Endpoints ---
 
 @app.route('/api/health', methods=['GET'])
@@ -415,20 +421,6 @@ def seed_sample_data():
 
     db.session.commit()
     return jsonify({'message': f'Successfully seeded {added} sample visitor records!', 'count': Visitor.query.count()}), 201
-
-# --- Static File Serving Routes ---
-@app.route('/')
-@app.route('/index.html')
-def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    if path.startswith('api/'):
-        return jsonify({'message': f'API route /{path} not found'}), 404
-    if os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
 
 # Entry point for local execution
 if __name__ == '__main__':
