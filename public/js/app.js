@@ -1,12 +1,12 @@
 /**
- * VISITOR MANAGEMENT SYSTEM - FRONTEND APPLICATION JS
+ * VISITOR MANAGEMENT SYSTEM - RECEPTIONIST CONSOLE JS
  */
 
 // Application State
 const state = {
-    currentView: 'kiosk',
-    authToken: localStorage.getItem('vms_token') || null,
-    currentUser: JSON.parse(localStorage.getItem('vms_user') || 'null'),
+    currentTab: 'register',
+    authToken: localStorage.getItem('vms_token') || 'demo_reception_token',
+    currentUser: JSON.parse(localStorage.getItem('vms_user') || '{"username": "admin", "role": "Reception Administrator"}'),
     visitors: [],
     stats: {},
     photoBase64: '',
@@ -29,30 +29,23 @@ function initApp() {
     // Initialize Auth UI State
     updateAuthUI();
 
-    // Fetch initial stats & data
+    // Fetch initial stats & visitor list
     fetchStats();
     fetchVisitors();
 }
 
-// --- VIEW NAVIGATION SWITCHER ---
-function switchView(viewName) {
-    if (viewName === 'dashboard' && !state.authToken) {
-        // Require login to access Admin Dashboard
-        openLoginModal();
-        showToast('Please log in as Admin to access Reception Dashboard', 'error');
-        return;
-    }
-
-    state.currentView = viewName;
+// --- CONSOLE TAB SWITCHER ---
+function switchTab(tabName) {
+    state.currentTab = tabName;
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
-    if (viewName === 'kiosk') {
-        document.getElementById('view-kiosk').classList.add('active');
-        document.getElementById('tab-kiosk').classList.add('active');
-    } else if (viewName === 'dashboard') {
-        document.getElementById('view-dashboard').classList.add('active');
-        document.getElementById('tab-dashboard').classList.add('active');
+    if (tabName === 'register') {
+        document.getElementById('view-register').classList.add('active');
+        document.getElementById('tab-register').classList.add('active');
+    } else if (tabName === 'log') {
+        document.getElementById('view-log').classList.add('active');
+        document.getElementById('tab-log').classList.add('active');
         fetchVisitors();
         fetchStats();
     }
@@ -62,17 +55,14 @@ function switchView(viewName) {
 function selectDuration(hours) {
     document.querySelectorAll('.duration-btn').forEach(btn => btn.classList.remove('active'));
     
-    // Highlight matching duration button if available
     const matchedBtn = Array.from(document.querySelectorAll('.duration-btn')).find(
         btn => btn.textContent.includes(`${hours} Hour`) || (hours === 8 && btn.textContent.includes('Full Day'))
     );
     if (matchedBtn) matchedBtn.classList.add('active');
 
-    // Calculate future expected checkout time
     const now = new Date();
     now.setHours(now.getHours() + hours);
 
-    // Format to datetime-local format (YYYY-MM-DDTHH:mm)
     const localIso = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
     document.getElementById('expected_check_out_time').value = localIso;
 }
@@ -95,7 +85,7 @@ async function startWebcam() {
         document.getElementById('btn-clear-photo').classList.remove('hidden');
     } catch (err) {
         console.error('Webcam access error:', err);
-        showToast('Unable to access webcam. Please upload an image file instead.', 'error');
+        showToast('Unable to access webcam. You can upload an image file instead.', 'error');
     }
 }
 
@@ -167,7 +157,7 @@ function stopWebcamStream() {
     }
 }
 
-// --- VISITOR CHECK-IN SUBMISSION (POST /api/visitors) ---
+// --- RECEPTIONIST VISITOR CHECK-IN SUBMISSION ---
 async function handleCheckin(event) {
     event.preventDefault();
 
@@ -196,36 +186,35 @@ async function handleCheckin(event) {
         const data = await response.json();
 
         if (response.ok) {
-            showToast(`Check-in complete! Visitor Pass #${data.visitor.pass_number}`, 'success');
+            showToast(`Visitor ${data.visitor.name} registered! Pass #${data.visitor.pass_number}`, 'success');
             
             // Reset Form & Photo
             document.getElementById('checkin-form').reset();
             clearPhoto();
             selectDuration(2);
 
-            // Show Printable Visitor Pass Modal immediately!
+            // Open Printable Visitor Pass Badge Modal
             openPassModal(data.visitor);
 
             // Refresh Dashboard Data
             fetchStats();
             fetchVisitors();
         } else {
-            showToast(data.message || 'Check-in failed. Please try again.', 'error');
+            showToast(data.message || 'Registration failed. Please try again.', 'error');
         }
     } catch (err) {
         console.error('Checkin error:', err);
-        showToast('Network error while processing check-in.', 'error');
+        showToast('Network error while registering visitor.', 'error');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-check-to-slot"></i> Complete Check-in & Issue Pass';
+        submitBtn.innerHTML = '<i class="fa-solid fa-check-to-slot"></i> Complete Check-in & Generate Pass';
     }
 }
 
-// --- GET VISITORS & DASHBOARD TABLE ---
+// --- GET VISITORS & VISITOR TRACKING TABLE ---
 async function fetchVisitors() {
     const tableBody = document.getElementById('visitors-table-body');
     
-    // Construct Query String from Filters
     const search = document.getElementById('filter-search').value.trim();
     const status = document.getElementById('filter-status').value;
     const department = document.getElementById('filter-department').value;
@@ -260,7 +249,7 @@ function renderVisitorsTable(visitors) {
             <tr>
                 <td colspan="9" class="text-center py-4 text-muted">
                     <i class="fa-solid fa-folder-open" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i>
-                    No visitor records found matching criteria.
+                    No visitor records found. Click "Add Sample Data" or register a visitor above.
                 </td>
             </tr>`;
         return;
@@ -305,10 +294,10 @@ function renderVisitorsTable(visitors) {
                                 <i class="fa-solid fa-right-from-bracket"></i> Check Out
                             </button>
                         ` : ''}
-                        <button class="btn btn-secondary btn-sm" onclick="viewPassModal(${v.id})" title="View Digital Badge Pass">
+                        <button class="btn btn-secondary btn-sm" onclick="viewPassModal(${v.id})" title="View Pass">
                             <i class="fa-solid fa-id-card"></i> Pass
                         </button>
-                        <button class="btn btn-outline btn-sm btn-danger" onclick="deleteVisitorRecord(${v.id})" title="Delete Record">
+                        <button class="btn btn-outline btn-sm btn-danger" onclick="deleteVisitorRecord(${v.id})" title="Delete">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
@@ -318,7 +307,7 @@ function renderVisitorsTable(visitors) {
     }).join('');
 }
 
-// --- CHECK-OUT VISITOR (PUT /api/visitors/<id>/checkout) ---
+// --- CHECK-OUT VISITOR ACTION ---
 async function checkoutVisitor(id) {
     try {
         const response = await fetch(`${API_BASE}/visitors/${id}/checkout`, {
@@ -328,7 +317,7 @@ async function checkoutVisitor(id) {
         const data = await response.json();
 
         if (response.ok) {
-            showToast(`Visitor ${data.visitor.name} successfully checked out!`, 'success');
+            showToast(`Visitor ${data.visitor.name} checked out successfully!`, 'success');
             fetchVisitors();
             fetchStats();
         } else {
@@ -340,7 +329,7 @@ async function checkoutVisitor(id) {
     }
 }
 
-// --- DELETE VISITOR RECORD (DELETE /api/visitors/<id>) ---
+// --- DELETE VISITOR RECORD ---
 async function deleteVisitorRecord(id) {
     if (!confirm('Are you sure you want to delete this visitor record permanently?')) return;
 
@@ -351,7 +340,7 @@ async function deleteVisitorRecord(id) {
         const data = await response.json();
 
         if (response.ok) {
-            showToast('Visitor record deleted successfully.', 'success');
+            showToast('Visitor record deleted.', 'success');
             fetchVisitors();
             fetchStats();
         } else {
@@ -363,7 +352,7 @@ async function deleteVisitorRecord(id) {
     }
 }
 
-// --- FETCH METRICS SUMMARY STATS (GET /api/stats) ---
+// --- FETCH METRICS SUMMARY STATS ---
 async function fetchStats() {
     try {
         const response = await fetch(`${API_BASE}/stats`);
@@ -376,7 +365,6 @@ async function fetchStats() {
             document.getElementById('stat-checked-out').textContent = data.checked_out_today || 0;
             document.getElementById('stat-overdue').textContent = data.overdue_count || 0;
 
-            // Nav tab counter badge
             document.getElementById('nav-active-badge').textContent = data.currently_checked_in || 0;
         }
     } catch (err) {
@@ -384,7 +372,7 @@ async function fetchStats() {
     }
 }
 
-// --- SEED SAMPLE DEMO DATA (POST /api/seed) ---
+// --- SEED SAMPLE DEMO DATA ---
 async function seedDemoData() {
     try {
         const response = await fetch(`${API_BASE}/seed`, { method: 'POST' });
@@ -409,7 +397,7 @@ function resetFilters() {
     fetchVisitors();
 }
 
-// --- PASS MODAL MANAGEMENT & QR CODE GENERATOR ---
+// --- PASS MODAL & QR CODE GENERATOR ---
 function openPassModal(visitor) {
     state.activeVisitorForPass = visitor;
 
@@ -422,7 +410,6 @@ function openPassModal(visitor) {
     const checkInDate = visitor.check_in_time_iso ? new Date(visitor.check_in_time_iso) : new Date();
     document.getElementById('pass-checkin-text').textContent = checkInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Status Pill
     const passPill = document.getElementById('pass-status-pill');
     if (visitor.status === 'checked_in') {
         passPill.className = 'badge-status badge-checked-in';
@@ -432,7 +419,6 @@ function openPassModal(visitor) {
         passPill.textContent = 'CHECKED-OUT';
     }
 
-    // Photo preview
     const photoImg = document.getElementById('pass-photo');
     const photoPlaceholder = document.getElementById('pass-photo-placeholder');
     if (visitor.photo_base64) {
@@ -445,7 +431,6 @@ function openPassModal(visitor) {
         photoPlaceholder.classList.remove('hidden');
     }
 
-    // Generate Inline QR Code SVG
     generateQRCodeSVG(visitor.pass_number, 'qr-code-svg');
 
     document.getElementById('modal-pass').classList.remove('hidden');
@@ -460,24 +445,19 @@ function printPass() {
     window.print();
 }
 
-/**
- * Lightweight SVG QR code matrix renderer fallback
- */
 function generateQRCodeSVG(text, containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    // Generate simple deterministic pattern matrix based on string hash for presentation
     let hash = 0;
     for (let i = 0; i < text.length; i++) {
         hash = ((hash << 5) - hash) + text.charCodeAt(i);
         hash |= 0;
     }
 
-    const size = 21; // 21x21 QR Grid
+    const size = 21;
     let rects = '';
     
-    // Position Finder Patterns (Top-Left, Top-Right, Bottom-Left)
     const isPositionFinder = (r, c) => {
         if (r < 7 && c < 7) return true;
         if (r < 7 && c >= size - 7) return true;
@@ -489,14 +469,12 @@ function generateQRCodeSVG(text, containerId) {
         for (let c = 0; c < size; c++) {
             let isBlack = false;
             if (isPositionFinder(r, c)) {
-                // Outer border or inner center dot
                 const inOuter = (r === 0 || r === 6 || c === 0 || c === 6 || r === size - 1 || r === size - 7 || c === size - 1 || c === size - 7);
                 const inInner = (r >= 2 && r <= 4 && c >= 2 && c <= 4) ||
                                 (r >= 2 && r <= 4 && c >= size - 5 && c <= size - 3) ||
                                 (r >= size - 5 && r <= size - 3 && c >= 2 && c <= 4);
                 isBlack = inOuter || inInner;
             } else {
-                // Hash data bits
                 const bitVal = Math.abs((hash ^ (r * 31 + c * 17)) % 3);
                 isBlack = bitVal === 0;
             }
@@ -510,7 +488,7 @@ function generateQRCodeSVG(text, containerId) {
     container.innerHTML = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="width: 64px; height: 64px;">${rects}</svg>`;
 }
 
-// --- ADMIN LOGIN / AUTHENTICATION (POST /api/login) ---
+// --- AUTHENTICATION ---
 function openLoginModal() {
     document.getElementById('modal-login').classList.remove('hidden');
     document.getElementById('login-error').classList.add('hidden');
@@ -546,12 +524,9 @@ async function handleLogin(event) {
 
             updateAuthUI();
             closeModal('modal-login');
-            showToast('Login successful! Welcome Admin.', 'success');
-
-            // Switch to Dashboard after login
-            switchView('dashboard');
+            showToast('Welcome back, Receptionist!', 'success');
         } else {
-            errorBox.textContent = data.message || 'Invalid login credentials.';
+            errorBox.textContent = data.message || 'Invalid credentials.';
             errorBox.classList.remove('hidden');
         }
     } catch (err) {
@@ -567,8 +542,7 @@ function handleLogout() {
     localStorage.removeItem('vms_user');
 
     updateAuthUI();
-    showToast('Logged out successfully.', 'success');
-    switchView('kiosk');
+    showToast('Logged out.', 'success');
 }
 
 function updateAuthUI() {
@@ -579,18 +553,18 @@ function updateAuthUI() {
 
     if (state.authToken && state.currentUser) {
         authStatus.className = 'auth-pill admin';
-        displayName.textContent = `${state.currentUser.username} (${state.currentUser.role})`;
+        displayName.textContent = `${state.currentUser.username} (${state.currentUser.role || 'Reception Console'})`;
         loginBtn.classList.add('hidden');
         logoutBtn.classList.remove('hidden');
     } else {
         authStatus.className = 'auth-pill guest';
-        displayName.textContent = 'Kiosk Mode';
+        displayName.textContent = 'Guest Mode';
         loginBtn.classList.remove('hidden');
         logoutBtn.classList.add('hidden');
     }
 }
 
-// --- UTILITY: TOAST NOTIFICATIONS & SANITIZATION ---
+// --- TOAST NOTIFICATIONS & SANITIZATION ---
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');

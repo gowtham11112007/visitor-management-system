@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visitor Management System | Reception Desk & Dashboard</title>
-    <meta name="description" content="Modern, secure Visitor Management System for corporate front desk registration and real-time reception tracking.">
+    <title>PassPort | Reception Desk Console</title>
+    <meta name="description" content="Receptionist Console for Visitor Registration, Digital Badge Issuance, and Live Reception Management.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,7 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Top Navigation Bar -->
+        <!-- Reception Console Top Header -->
         <header class="navbar">
             <div class="brand">
                 <div class="brand-icon">
@@ -24,53 +24,94 @@
                 </div>
                 <div class="brand-text">
                     <h1>PassPort</h1>
-                    <span class="brand-tag">Visitor Management System</span>
+                    <span class="brand-tag">Reception Desk Console</span>
                 </div>
             </div>
 
-            <!-- View Navigation Switcher -->
+            <!-- Reception Console Navigation Tabs -->
             <nav class="nav-tabs">
-                <button id="tab-kiosk" class="nav-btn active" onclick="switchView('kiosk')">
-                    <i class="fa-solid fa-clipboard-user"></i>
-                    <span>Front Desk Kiosk</span>
+                <button id="tab-register" class="nav-btn active" onclick="switchTab('register')">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Register New Visitor</span>
                 </button>
-                <button id="tab-dashboard" class="nav-btn" onclick="switchView('dashboard')">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Admin Dashboard</span>
+                <button id="tab-log" class="nav-btn" onclick="switchTab('log')">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Visitor Log & Tracking</span>
                     <span id="nav-active-badge" class="badge-count">0</span>
                 </button>
             </nav>
 
             <!-- User Auth Controls -->
             <div class="user-controls">
-                <div id="auth-status" class="auth-pill guest">
-                    <i class="fa-solid fa-circle-user"></i>
-                    <span id="user-display-name">Kiosk Mode</span>
+                <div id="auth-status" class="auth-pill admin">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span id="user-display-name">Reception Desk (Admin)</span>
                 </div>
-                <button id="btn-login-modal" class="btn btn-outline" onclick="openLoginModal()">
-                    <i class="fa-solid fa-right-to-bracket"></i> Admin Login
+                <button id="btn-login-modal" class="btn btn-outline hidden" onclick="openLoginModal()">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login
                 </button>
-                <button id="btn-logout" class="btn btn-outline btn-danger hidden" onclick="handleLogout()">
+                <button id="btn-logout" class="btn btn-outline btn-danger" onclick="handleLogout()">
                     <i class="fa-solid fa-right-from-bracket"></i> Logout
                 </button>
             </div>
         </header>
 
-        <!-- Main Workspace Content -->
+        <!-- Main Console Workspace -->
         <main class="main-content">
             
-            <!-- VIEW 1: FRONT DESK VISITOR REGISTRATION KIOSK -->
-            <section id="view-kiosk" class="view-section active">
-                <div class="kiosk-container">
-                    <div class="kiosk-hero">
-                        <h2>Welcome to <span class="gradient-text">Corporate HQ</span></h2>
-                        <p>Please check in below to receive your digital visitor badge.</p>
+            <!-- Real-time Summary Metrics Bar -->
+            <div class="metrics-grid">
+                <div class="metric-card primary">
+                    <div class="metric-icon">
+                        <i class="fa-solid fa-users"></i>
                     </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Total Visitors Today</span>
+                        <h3 id="stat-total-today">0</h3>
+                    </div>
+                </div>
 
+                <div class="metric-card success">
+                    <div class="metric-icon">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Currently Checked-In</span>
+                        <h3 id="stat-currently-in">0</h3>
+                    </div>
+                </div>
+
+                <div class="metric-card neutral">
+                    <div class="metric-icon">
+                        <i class="fa-solid fa-user-minus"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Checked-Out Today</span>
+                        <h3 id="stat-checked-out">0</h3>
+                    </div>
+                </div>
+
+                <div class="metric-card warning">
+                    <div class="metric-icon">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Overdue Checkouts</span>
+                        <h3 id="stat-overdue">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 1: RECEPTIONIST VISITOR REGISTRATION FORM -->
+            <section id="view-register" class="view-section active">
+                <div class="kiosk-container">
                     <div class="form-card">
                         <div class="form-header">
-                            <i class="fa-solid fa-user-plus"></i>
-                            <h3>Visitor Check-in Registration</h3>
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <div>
+                                <h3>Register New Visitor</h3>
+                                <p class="form-subtitle">Enter visitor details to complete check-in and issue a digital badge pass.</p>
+                            </div>
                         </div>
 
                         <form id="checkin-form" onsubmit="handleCheckin(event)">
@@ -78,7 +119,7 @@
                                 
                                 <!-- Personal Details -->
                                 <div class="form-group">
-                                    <label for="visitor_name" class="required">Full Name</label>
+                                    <label for="visitor_name" class="required">Visitor Full Name</label>
                                     <div class="input-wrapper">
                                         <i class="fa-solid fa-user"></i>
                                         <input type="text" id="visitor_name" required placeholder="e.g. Jane Doe">
@@ -103,10 +144,10 @@
 
                                 <!-- Visit Details -->
                                 <div class="form-group">
-                                    <label for="department" class="required">Department / Division</label>
+                                    <label for="department" class="required">Department Visited</label>
                                     <div class="input-wrapper">
                                         <i class="fa-solid fa-building"></i>
-                                        <select id="department" required onchange="handleDepartmentChange()">
+                                        <select id="department" required>
                                             <option value="" disabled selected>Select Department</option>
                                             <option value="Executive">Executive & Management</option>
                                             <option value="Information Technology">Information Technology (IT)</option>
@@ -145,7 +186,7 @@
 
                                 <!-- Check-in & Duration Selector -->
                                 <div class="form-group full-width">
-                                    <label class="required">Expected Duration / Check-out Time</label>
+                                    <label class="required">Visit Duration & Expected Check-out Time</label>
                                     <div class="duration-selector">
                                         <button type="button" class="duration-btn" onclick="selectDuration(1)">1 Hour</button>
                                         <button type="button" class="duration-btn active" onclick="selectDuration(2)">2 Hours</button>
@@ -160,25 +201,25 @@
 
                                 <!-- Photo Upload & Webcam Capture -->
                                 <div class="form-group full-width">
-                                    <label>Visitor Photo (Optional)</label>
+                                    <label>Visitor Photo / Avatar (Optional)</label>
                                     <div class="photo-capture-box">
                                         <div class="photo-preview-area">
                                             <div id="photo-placeholder" class="placeholder-icon">
                                                 <i class="fa-solid fa-camera"></i>
-                                                <span>No photo attached</span>
+                                                <span>No photo</span>
                                             </div>
                                             <img id="captured-photo-img" src="" alt="Visitor Photo" class="hidden">
                                             <video id="webcam-video" autoplay playsinline class="hidden"></video>
                                         </div>
                                         <div class="photo-actions">
                                             <button type="button" id="btn-webcam" class="btn btn-secondary" onclick="startWebcam()">
-                                                <i class="fa-solid fa-video"></i> Use Webcam
+                                                <i class="fa-solid fa-video"></i> Take Photo
                                             </button>
                                             <button type="button" id="btn-snap" class="btn btn-accent hidden" onclick="snapPhoto()">
                                                 <i class="fa-solid fa-camera"></i> Capture Snapshot
                                             </button>
                                             <label class="btn btn-secondary file-upload-btn">
-                                                <i class="fa-solid fa-upload"></i> Upload File
+                                                <i class="fa-solid fa-upload"></i> Upload Image
                                                 <input type="file" id="photo_file" accept="image/*" onchange="handleFileUpload(event)">
                                             </label>
                                             <button type="button" id="btn-clear-photo" class="btn btn-outline hidden" onclick="clearPhoto()">
@@ -192,7 +233,7 @@
                             <!-- Submit Button -->
                             <div class="form-footer">
                                 <button type="submit" id="btn-checkin-submit" class="btn btn-primary btn-large">
-                                    <i class="fa-solid fa-check-to-slot"></i> Complete Check-in & Issue Pass
+                                    <i class="fa-solid fa-check-to-slot"></i> Complete Check-in & Generate Pass
                                 </button>
                             </div>
                         </form>
@@ -200,53 +241,8 @@
                 </div>
             </section>
 
-            <!-- VIEW 2: VISITOR MANAGEMENT DASHBOARD -->
-            <section id="view-dashboard" class="view-section">
-                
-                <!-- Summary Metrics Cards -->
-                <div class="metrics-grid">
-                    <div class="metric-card primary">
-                        <div class="metric-icon">
-                            <i class="fa-solid fa-users"></i>
-                        </div>
-                        <div class="metric-info">
-                            <span class="metric-label">Total Visitors Today</span>
-                            <h3 id="stat-total-today">0</h3>
-                        </div>
-                    </div>
-
-                    <div class="metric-card success">
-                        <div class="metric-icon">
-                            <i class="fa-solid fa-user-check"></i>
-                        </div>
-                        <div class="metric-info">
-                            <span class="metric-label">Currently Checked-In</span>
-                            <h3 id="stat-currently-in">0</h3>
-                        </div>
-                    </div>
-
-                    <div class="metric-card neutral">
-                        <div class="metric-icon">
-                            <i class="fa-solid fa-user-minus"></i>
-                        </div>
-                        <div class="metric-info">
-                            <span class="metric-label">Checked-Out Today</span>
-                            <h3 id="stat-checked-out">0</h3>
-                        </div>
-                    </div>
-
-                    <div class="metric-card warning">
-                        <div class="metric-icon">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
-                        </div>
-                        <div class="metric-info">
-                            <span class="metric-label">Overdue Checkouts</span>
-                            <h3 id="stat-overdue">0</h3>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Dashboard Controls & Filter Bar -->
+            <!-- TAB 2: VISITOR LOG & TRACKING DASHBOARD -->
+            <section id="view-log" class="view-section">
                 <div class="dashboard-card">
                     <div class="table-toolbar">
                         <div class="search-box">
@@ -324,11 +320,11 @@
 
         <!-- FOOTER -->
         <footer class="app-footer">
-            <p>&copy; 2026 PassPort Visitor Management System. Designed for high-efficiency corporate reception desks.</p>
+            <p>&copy; 2026 PassPort Visitor Management System. Reception Desk Console.</p>
         </footer>
     </div>
 
-    <!-- MODAL 1: DIGITAL VISITOR PASS / BADGE MODAL -->
+    <!-- DIGITAL VISITOR PASS / BADGE MODAL -->
     <div id="modal-pass" class="modal-backdrop hidden">
         <div class="modal-card pass-modal-card">
             <button class="modal-close" onclick="closeModal('modal-pass')">&times;</button>
@@ -402,15 +398,15 @@
         </div>
     </div>
 
-    <!-- MODAL 2: ADMIN LOGIN MODAL -->
+    <!-- RECEPTIONIST LOGIN MODAL -->
     <div id="modal-login" class="modal-backdrop hidden">
         <div class="modal-card login-modal-card">
             <button class="modal-close" onclick="closeModal('modal-login')">&times;</button>
             <div class="form-header">
                 <i class="fa-solid fa-user-shield"></i>
-                <h3>Reception Admin Login</h3>
+                <h3>Reception Desk Login</h3>
             </div>
-            <p class="login-subtitle">Enter authorized credentials to manage visitor records and check-outs.</p>
+            <p class="login-subtitle">Enter authorized credentials to log into the Receptionist Console.</p>
             
             <form id="login-form" onsubmit="handleLogin(event)">
                 <div class="form-group">
@@ -433,7 +429,7 @@
 
                 <div class="form-footer mt-4">
                     <button type="submit" class="btn btn-primary w-full">
-                        <i class="fa-solid fa-right-to-bracket"></i> Login to Dashboard
+                        <i class="fa-solid fa-right-to-bracket"></i> Login to Console
                     </button>
                 </div>
             </form>

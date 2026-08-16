@@ -3,7 +3,7 @@ import random
 import string
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, make_response
+from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import jwt
@@ -16,7 +16,6 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'adminpass')
 # Determine DB URI: Use SQLite in instance or /tmp for Vercel
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
-    # If running on Vercel read-only filesystem, place DB in /tmp/
     if os.environ.get('VERCEL'):
         DATABASE_URL = 'sqlite:////tmp/vms.db'
     else:
@@ -30,6 +29,10 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 CORS(app)
 db = SQLAlchemy(app)
+
+# Helper: UTC Now
+def get_utc_now():
+    return datetime.now(timezone.utc)
 
 # Database Models
 class Visitor(db.Model):
@@ -45,15 +48,19 @@ class Visitor(db.Model):
     host_name = db.Column(db.String(120), nullable=False)
     photo_base64 = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(30), default='checked_in')  # 'checked_in' or 'checked_out'
-    check_in_time = db.Column(db.DateTime, default=datetime.utcnow)
+    check_in_time = db.Column(db.DateTime, default=get_utc_now)
     expected_check_out_time = db.Column(db.DateTime, nullable=False)
     actual_check_out_time = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
 
     def to_dict(self):
-        now = datetime.utcnow()
-        is_overdue = self.status == 'checked_in' and self.expected_check_out_time and now > self.expected_check_out_time
-        
+        now = get_utc_now().replace(tzinfo=None)
+        checkin_dt = self.check_in_time.replace(tzinfo=None) if self.check_in_time else None
+        expected_dt = self.expected_check_out_time.replace(tzinfo=None) if self.expected_check_out_time else None
+        actual_dt = self.actual_check_out_time.replace(tzinfo=None) if self.actual_check_out_time else None
+
+        is_overdue = self.status == 'checked_in' and expected_dt and now > expected_dt
+
         return {
             'id': self.id,
             'pass_number': self.pass_number,
@@ -66,18 +73,18 @@ class Visitor(db.Model):
             'photo_base64': self.photo_base64 or '',
             'status': self.status,
             'is_overdue': is_overdue,
-            'check_in_time': self.check_in_time.strftime('%Y-%m-%d %H:%M:%S') if self.check_in_time else None,
-            'check_in_time_iso': self.check_in_time.isoformat() + 'Z' if self.check_in_time else None,
-            'expected_check_out_time': self.expected_check_out_time.strftime('%Y-%m-%d %H:%M:%S') if self.expected_check_out_time else None,
-            'expected_check_out_time_iso': self.expected_check_out_time.isoformat() + 'Z' if self.expected_check_out_time else None,
-            'actual_check_out_time': self.actual_check_out_time.strftime('%Y-%m-%d %H:%M:%S') if self.actual_check_out_time else None,
-            'actual_check_out_time_iso': self.actual_check_out_time.isoformat() + 'Z' if self.actual_check_out_time else None,
+            'check_in_time': checkin_dt.strftime('%Y-%m-%d %H:%M:%S') if checkin_dt else None,
+            'check_in_time_iso': checkin_dt.isoformat() + 'Z' if checkin_dt else None,
+            'expected_check_out_time': expected_dt.strftime('%Y-%m-%d %H:%M:%S') if expected_dt else None,
+            'expected_check_out_time_iso': expected_dt.isoformat() + 'Z' if expected_dt else None,
+            'actual_check_out_time': actual_dt.strftime('%Y-%m-%d %H:%M:%S') if actual_dt else None,
+            'actual_check_out_time_iso': actual_dt.isoformat() + 'Z' if actual_dt else None,
             'notes': self.notes or ''
         }
 
 # Helper: Pass Number Generator
 def generate_pass_number():
-    date_str = datetime.utcnow().strftime('%Y%m%d')
+    date_str = get_utc_now().strftime('%Y%m%d')
     random_str = ''.join(random.choices(string.digits, k=4))
     return f"VMS-{date_str}-{random_str}"
 
@@ -121,7 +128,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'system': 'Visitor Management System API',
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': get_utc_now().isoformat(),
         'database': DATABASE_URL.split('://')[0]
     }), 200
 
@@ -132,7 +139,7 @@ def login():
     password = data.get('password')
 
     if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-        expiration = datetime.utcnow() + timedelta(hours=8)
+        expiration = get_utc_now() + timedelta(hours=8)
         token = jwt.encode(
             {'sub': username, 'exp': expiration, 'role': 'admin'},
             app.config['SECRET_KEY'],
@@ -143,7 +150,7 @@ def login():
             'token': token,
             'user': {
                 'username': username,
-                'role': 'Admin'
+                'role': 'Reception Administrator'
             }
         }), 200
     
@@ -153,7 +160,6 @@ def login():
 def register_visitor():
     data = request.get_json() or {}
 
-    # Validation
     name = data.get('name', '').strip()
     phone = data.get('phone', '').strip()
     purpose = data.get('purpose', '').strip()
@@ -163,13 +169,11 @@ def register_visitor():
     if not name or not phone or not purpose or not department or not host_name:
         return jsonify({'message': 'Required fields missing: name, phone, purpose, department, and host_name are required.'}), 400
 
-    # Handle Expected Check-out Time
-    now = datetime.utcnow()
+    now = get_utc_now().replace(tzinfo=None)
     expected_checkout_str = data.get('expected_check_out_time')
     
     if expected_checkout_str:
         try:
-            # Accepts ISO strings like "2026-08-16T21:30" or "2026-08-16 21:30:00"
             clean_str = expected_checkout_str.replace('T', ' ')
             if len(clean_str) == 16:
                 expected_checkout = datetime.strptime(clean_str, '%Y-%m-%d %H:%M')
@@ -178,12 +182,10 @@ def register_visitor():
         except ValueError:
             expected_checkout = now + timedelta(hours=4)
     else:
-        # Default duration (e.g., 4 hours)
         duration_hours = int(data.get('duration_hours', 4))
         expected_checkout = now + timedelta(hours=duration_hours)
 
     pass_num = generate_pass_number()
-    # Ensure pass_number uniqueness
     while Visitor.query.filter_by(pass_number=pass_num).first():
         pass_num = generate_pass_number()
 
@@ -214,7 +216,6 @@ def register_visitor():
 def get_visitors():
     query = Visitor.query
 
-    # Search filter (name, phone, email, pass_number, host_name)
     search = request.args.get('search', '').strip()
     if search:
         search_fmt = f"%{search}%"
@@ -226,17 +227,14 @@ def get_visitors():
             (Visitor.host_name.ilike(search_fmt))
         )
 
-    # Status filter
     status = request.args.get('status', 'all').strip().lower()
     if status in ['checked_in', 'checked_out']:
         query = query.filter(Visitor.status == status)
 
-    # Department filter
     department = request.args.get('department', 'all').strip()
     if department and department.lower() != 'all':
         query = query.filter(Visitor.department == department)
 
-    # Date filter (YYYY-MM-DD)
     date_str = request.args.get('date', '').strip()
     if date_str:
         try:
@@ -246,20 +244,19 @@ def get_visitors():
         except ValueError:
             pass
 
-    # Order by newest check-in time first
     visitors = query.order_by(Visitor.check_in_time.desc()).all()
     return jsonify([v.to_dict() for v in visitors]), 200
 
 @app.route('/api/visitors/<int:visitor_id>', methods=['GET'])
 def get_visitor(visitor_id):
-    visitor = Visitor.query.get(visitor_id)
+    visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
         return jsonify({'message': f'Visitor with ID {visitor_id} not found'}), 404
     return jsonify(visitor.to_dict()), 200
 
 @app.route('/api/visitors/<int:visitor_id>/checkout', methods=['PUT'])
 def checkout_visitor(visitor_id):
-    visitor = Visitor.query.get(visitor_id)
+    visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
         return jsonify({'message': f'Visitor with ID {visitor_id} not found'}), 404
 
@@ -267,7 +264,7 @@ def checkout_visitor(visitor_id):
         return jsonify({'message': 'Visitor is already checked out', 'visitor': visitor.to_dict()}), 200
 
     visitor.status = 'checked_out'
-    visitor.actual_check_out_time = datetime.utcnow()
+    visitor.actual_check_out_time = get_utc_now().replace(tzinfo=None)
     db.session.commit()
 
     return jsonify({
@@ -277,7 +274,7 @@ def checkout_visitor(visitor_id):
 
 @app.route('/api/visitors/<int:visitor_id>', methods=['DELETE'])
 def delete_visitor(visitor_id):
-    visitor = Visitor.query.get(visitor_id)
+    visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
         return jsonify({'message': f'Visitor with ID {visitor_id} not found'}), 404
 
@@ -288,7 +285,7 @@ def delete_visitor(visitor_id):
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    now = datetime.utcnow()
+    now = get_utc_now().replace(tzinfo=None)
     today_start = datetime(now.year, now.month, now.day)
 
     total_today = Visitor.query.filter(Visitor.check_in_time >= today_start).count()
@@ -303,7 +300,6 @@ def get_stats():
         Visitor.expected_check_out_time < now
     ).count()
 
-    # Department breakdown
     all_visitors = Visitor.query.all()
     dept_counts = {}
     for v in all_visitors:
@@ -320,12 +316,11 @@ def get_stats():
 
 @app.route('/api/seed', methods=['POST'])
 def seed_sample_data():
-    """Seeds realistic sample data if DB has fewer than 3 records."""
     count = Visitor.query.count()
     if count >= 5:
         return jsonify({'message': 'Database already has sufficient data', 'count': count}), 200
 
-    now = datetime.utcnow()
+    now = get_utc_now().replace(tzinfo=None)
     samples = [
         {
             'name': 'Sarah Jenkins',
@@ -335,8 +330,8 @@ def seed_sample_data():
             'department': 'Executive',
             'host_name': 'David Vance (CEO)',
             'status': 'checked_in',
-            'offset_in': -45,  # 45 mins ago
-            'offset_exp': 120, # 2 hours from checkin
+            'offset_in': -45,
+            'offset_exp': 120,
         },
         {
             'name': 'Marcus Brody',
@@ -346,8 +341,8 @@ def seed_sample_data():
             'department': 'HR & Recruitment',
             'host_name': 'Rachel Green (HR Dir)',
             'status': 'checked_in',
-            'offset_in': -120, # 2 hrs ago
-            'offset_exp': -15, # Past expected checkout (overdue test)
+            'offset_in': -120,
+            'offset_exp': -15,
         },
         {
             'name': 'Elena Rostova',
@@ -415,6 +410,6 @@ def seed_sample_data():
 
 # Entry point for local execution
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8000))
     print(f"🚀 Starting Visitor Management System backend on http://127.0.0.1:{port}")
     app.run(host='0.0.0.0', port=port, debug=True)

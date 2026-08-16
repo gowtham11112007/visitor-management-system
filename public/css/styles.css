@@ -130,7 +130,7 @@ body {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.6rem 1.25rem;
+    padding: 0.65rem 1.35rem;
     background: transparent;
     border: none;
     color: var(--text-secondary);
@@ -213,64 +213,47 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ==========================================================================
-   FRONT DESK KIOSK VIEW
-   ========================================================================== */
+/* Kiosk / Form Container */
 .kiosk-container {
-    max-width: 820px;
+    max-width: 860px;
     margin: 0 auto;
-}
-
-.kiosk-hero {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.kiosk-hero h2 {
-    font-family: var(--font-heading);
-    font-size: 2.2rem;
-    font-weight: 800;
-    margin-bottom: 0.5rem;
-}
-
-.gradient-text {
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.kiosk-hero p {
-    color: var(--text-secondary);
-    font-size: 1.05rem;
 }
 
 .form-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: 2.5rem;
+    padding: 2.25rem;
     box-shadow: var(--shadow-card);
 }
 
 .form-header {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    align-items: flex-start;
+    gap: 1rem;
     margin-bottom: 1.75rem;
-    padding-bottom: 1rem;
+    padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--border-color);
-    color: var(--color-primary);
 }
 
 .form-header i {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
+    color: var(--color-primary);
+    margin-top: 0.2rem;
 }
 
 .form-header h3 {
     font-family: var(--font-heading);
-    font-size: 1.3rem;
+    font-size: 1.4rem;
     font-weight: 700;
     color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.form-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
 }
 
 .form-grid {
@@ -434,9 +417,7 @@ body {
     text-align: center;
 }
 
-/* ==========================================================================
-   BUTTONS & COMMON COMPONENTS
-   ========================================================================== */
+/* Buttons */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -502,7 +483,6 @@ body {
     padding: 1rem 2.2rem;
     font-size: 1.05rem;
     width: 100%;
-
 }
 
 .btn-sm {
@@ -510,19 +490,14 @@ body {
     font-size: 0.82rem;
 }
 
-.w-full {
-    width: 100%;
-}
-
+.w-full { width: 100%; }
 .mt-2 { margin-top: 0.5rem; }
 .mt-4 { margin-top: 1rem; }
 .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
 .text-center { text-align: center; }
 .hidden { display: none !important; }
 
-/* ==========================================================================
-   DASHBOARD VIEW & METRICS
-   ========================================================================== */
+/* Dashboard & Metrics */
 .metrics-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -759,9 +734,7 @@ body {
     gap: 0.4rem;
 }
 
-/* ==========================================================================
-   MODAL WINDOWS & DIGITAL PASS
-   ========================================================================== */
+/* Modal Windows & Digital Pass */
 .modal-backdrop {
     position: fixed;
     top: 0;
@@ -815,7 +788,7 @@ body {
     background: #0d1424;
 }
 
-/* Printable Digital Visitor Badge Design */
+/* Digital Visitor Badge */
 .visitor-pass-badge {
     background: #11192e;
     border: 2px solid var(--color-primary);
@@ -1016,9 +989,7 @@ body {
     margin-top: auto;
 }
 
-/* ==========================================================================
-   RESPONSIVE DESIGN BREAKPOINTS
-   ========================================================================== */
+/* Responsive Design */
 @media (max-width: 992px) {
     .metrics-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1053,7 +1024,7 @@ body {
     }
 }
 
-/* PRINT STYLESHEET FOR VISITOR PASS BADGE */
+/* Print Stylesheet for Badge Printers */
 @media print {
     body * {
         visibility: hidden;
