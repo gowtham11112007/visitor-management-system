@@ -31,37 +31,12 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# WSGI Middleware for Vercel serverless path normalization
-class VercelPathFixMiddleware:
-    def __init__(self, wsgi_app):
-        self.wsgi_app = wsgi_app
-
-    def __call__(self, environ, start_response):
-        path = environ.get('PATH_INFO', '')
-        if '/app.py' in path:
-            path = path.replace('/api/app.py', '').replace('/app.py', '')
-            if not path.startswith('/api'):
-                path = '/api' + path
-            environ['PATH_INFO'] = path or '/api/health'
-        return self.wsgi_app(environ, start_response)
-
-app.wsgi_app = VercelPathFixMiddleware(app.wsgi_app)
-
 CORS(app)
 db = SQLAlchemy(app)
 
 # Helper: UTC Now
 def get_utc_now():
     return datetime.now(timezone.utc)
-
-# Dual-route helper for Vercel compatibility
-def api_route(rule, **options):
-    def decorator(f):
-        alt_rule = rule[4:] if rule.startswith('/api') else f"/api{rule}"
-        app.add_url_rule(rule, endpoint=f"{f.__name__}_1", view_func=f, **options)
-        app.add_url_rule(alt_rule, endpoint=f"{f.__name__}_2", view_func=f, **options)
-        return f
-    return decorator
 
 # Database Models
 class Visitor(db.Model):
@@ -147,7 +122,8 @@ with app.app_context():
 
 # --- API Endpoints ---
 
-@api_route('/api/health', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({
         'status': 'healthy',
@@ -156,7 +132,8 @@ def health_check():
         'database': DATABASE_URL.split('://')[0]
     }), 200
 
-@api_route('/api/login', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
+@app.route('/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
     username = data.get('username')
@@ -180,7 +157,8 @@ def login():
     
     return jsonify({'message': 'Invalid username or password'}), 401
 
-@api_route('/api/visitors', methods=['POST'])
+@app.route('/api/visitors', methods=['POST'])
+@app.route('/visitors', methods=['POST'])
 def register_visitor():
     data = request.get_json() or {}
 
@@ -236,7 +214,8 @@ def register_visitor():
         'visitor': visitor.to_dict()
     }), 201
 
-@api_route('/api/visitors', methods=['GET'])
+@app.route('/api/visitors', methods=['GET'])
+@app.route('/visitors', methods=['GET'])
 def get_visitors():
     query = Visitor.query
 
@@ -271,14 +250,16 @@ def get_visitors():
     visitors = query.order_by(Visitor.check_in_time.desc()).all()
     return jsonify([v.to_dict() for v in visitors]), 200
 
-@api_route('/api/visitors/<int:visitor_id>', methods=['GET'])
+@app.route('/api/visitors/<int:visitor_id>', methods=['GET'])
+@app.route('/visitors/<int:visitor_id>', methods=['GET'])
 def get_visitor(visitor_id):
     visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
         return jsonify({'message': f'Visitor with ID {visitor_id} not found'}), 404
     return jsonify(visitor.to_dict()), 200
 
-@api_route('/api/visitors/<int:visitor_id>/checkout', methods=['PUT'])
+@app.route('/api/visitors/<int:visitor_id>/checkout', methods=['PUT'])
+@app.route('/visitors/<int:visitor_id>/checkout', methods=['PUT'])
 def checkout_visitor(visitor_id):
     visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
@@ -296,7 +277,8 @@ def checkout_visitor(visitor_id):
         'visitor': visitor.to_dict()
     }), 200
 
-@api_route('/api/visitors/<int:visitor_id>', methods=['DELETE'])
+@app.route('/api/visitors/<int:visitor_id>', methods=['DELETE'])
+@app.route('/visitors/<int:visitor_id>', methods=['DELETE'])
 def delete_visitor(visitor_id):
     visitor = db.session.get(Visitor, visitor_id)
     if not visitor:
@@ -307,7 +289,8 @@ def delete_visitor(visitor_id):
 
     return jsonify({'message': 'Visitor record deleted successfully'}), 200
 
-@api_route('/api/stats', methods=['GET'])
+@app.route('/api/stats', methods=['GET'])
+@app.route('/stats', methods=['GET'])
 def get_stats():
     now = get_utc_now().replace(tzinfo=None)
     today_start = datetime(now.year, now.month, now.day)
@@ -338,7 +321,8 @@ def get_stats():
         'total_all_time': len(all_visitors)
     }), 200
 
-@api_route('/api/seed', methods=['POST'])
+@app.route('/api/seed', methods=['POST'])
+@app.route('/seed', methods=['POST'])
 def seed_sample_data():
     count = Visitor.query.count()
     if count >= 5:
@@ -441,7 +425,7 @@ def serve_index():
 @app.route('/<path:path>')
 def serve_static(path):
     if path.startswith('api/'):
-        return jsonify({'message': f'API route {path} not found'}), 404
+        return jsonify({'message': f'API route /{path} not found'}), 404
     if os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, 'index.html')
