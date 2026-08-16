@@ -14,8 +14,11 @@ const state = {
     activeVisitorForPass: null
 };
 
-// Base API URL
-const API_BASE = '/api';
+// Flexible Base API URL resolution
+const getApiBase = () => {
+    // If running on local server where /api/ is routed explicitly, use /api; otherwise relative to root
+    return (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '/api' : '';
+};
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -177,7 +180,7 @@ async function handleCheckin(event) {
     };
 
     try {
-        const response = await fetch(`${API_BASE}/visitors`, {
+        const response = await fetch(`${getApiBase()}/visitors`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -227,7 +230,7 @@ async function fetchVisitors() {
     if (date) params.append('date', date);
 
     try {
-        const response = await fetch(`${API_BASE}/visitors?${params.toString()}`);
+        const response = await fetch(`${getApiBase()}/visitors?${params.toString()}`);
         const data = await response.json();
 
         if (response.ok) {
@@ -310,7 +313,7 @@ function renderVisitorsTable(visitors) {
 // --- CHECK-OUT VISITOR ACTION ---
 async function checkoutVisitor(id) {
     try {
-        const response = await fetch(`${API_BASE}/visitors/${id}/checkout`, {
+        const response = await fetch(`${getApiBase()}/visitors/${id}/checkout`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -334,7 +337,7 @@ async function deleteVisitorRecord(id) {
     if (!confirm('Are you sure you want to delete this visitor record permanently?')) return;
 
     try {
-        const response = await fetch(`${API_BASE}/visitors/${id}`, {
+        const response = await fetch(`${getApiBase()}/visitors/${id}`, {
             method: 'DELETE'
         });
         const data = await response.json();
@@ -355,7 +358,7 @@ async function deleteVisitorRecord(id) {
 // --- FETCH METRICS SUMMARY STATS ---
 async function fetchStats() {
     try {
-        const response = await fetch(`${API_BASE}/stats`);
+        const response = await fetch(`${getApiBase()}/stats`);
         const data = await response.json();
 
         if (response.ok) {
@@ -375,7 +378,7 @@ async function fetchStats() {
 // --- SEED SAMPLE DEMO DATA ---
 async function seedDemoData() {
     try {
-        const response = await fetch(`${API_BASE}/seed`, { method: 'POST' });
+        const response = await fetch(`${getApiBase()}/seed`, { method: 'POST' });
         const data = await response.json();
         if (response.ok) {
             showToast(data.message, 'success');
@@ -508,7 +511,7 @@ async function handleLogin(event) {
     errorBox.classList.add('hidden');
 
     try {
-        const response = await fetch(`${API_BASE}/login`, {
+        const response = await fetch(`${getApiBase()}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: usernameInput, password: passwordInput })
