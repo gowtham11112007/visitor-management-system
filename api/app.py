@@ -31,6 +31,22 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# WSGI Middleware for Vercel serverless path normalization
+class VercelPathFixMiddleware:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path = environ.get('PATH_INFO', '')
+        if '/app.py' in path:
+            path = path.replace('/api/app.py', '').replace('/app.py', '')
+            if not path.startswith('/api'):
+                path = '/api' + path
+            environ['PATH_INFO'] = path or '/api/health'
+        return self.wsgi_app(environ, start_response)
+
+app.wsgi_app = VercelPathFixMiddleware(app.wsgi_app)
+
 CORS(app)
 db = SQLAlchemy(app)
 
